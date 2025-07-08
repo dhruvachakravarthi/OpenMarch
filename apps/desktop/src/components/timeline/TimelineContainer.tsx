@@ -13,6 +13,7 @@ import TimelineControls from "./TimelineControls";
 import { useFullscreenStore } from "@/stores/FullscreenStore";
 import PerspectiveSlider from "./PerspectiveSlider";
 import PageTimeline from "./PageTimeline";
+import Metronome from "./audio/Metronome";
 
 export default function TimelineContainer() {
     const { isPlaying } = useIsPlaying()!;
@@ -22,6 +23,9 @@ export default function TimelineContainer() {
     const { beats } = useTimingObjectsStore()!;
     const { isFullscreen } = useFullscreenStore();
     const timelineRef = useRef<HTMLDivElement>(null);
+
+    // Grab beats for the current page
+    const pageBeats = selectedPage?.beats ?? [];
 
     useEffect(() => {
         if (!selectedPage) return;
@@ -123,6 +127,8 @@ export default function TimelineContainer() {
                         </div>
                     )}
                 </div>
+                {/* Metronome will start clicking at start of playback and page, auto-reset on changes */}
+                <Metronome beats={pageBeats} isPlaying={isPlaying} />
             </div>
         </div>
     );
