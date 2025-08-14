@@ -3,6 +3,7 @@ import MarcherPageMap from "@/global/classes/MarcherPageIndex";
 import { schema } from "../database/db";
 import { Path } from "@openmarch/path-utility";
 import type Page from "./Page";
+import { StepSize } from "@/global/classes/StepSize";
 
 const { marcher_pages } = schema;
 
@@ -30,6 +31,8 @@ export default interface MarcherPage {
     readonly x: number;
     /** Y coordinate of the MarcherPage */
     readonly y: number;
+    /** Step size to the next MarcherPage */
+    readonly step_size: StepSize | null;
     /** The ID of the pathway data */
     readonly path_data_id: number | null;
     /** The position along the pathway (0-1) */
@@ -173,6 +176,7 @@ export function databaseMarcherPagesToMarcherPages(
 
             result.push({
                 ...dbMarcherPage,
+                step_size: null,
                 path_data: createPathData(dbMarcherPage, previousMarcherPage),
                 x: dbMarcherPage.x || 0,
                 y: dbMarcherPage.y || 0,

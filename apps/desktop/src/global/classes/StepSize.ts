@@ -3,6 +3,7 @@ import Marcher from "./Marcher";
 import MarcherPage from "./MarcherPage";
 import MarcherPageMap from "@/global/classes/MarcherPageIndex";
 import Page from "./Page";
+import { CoordinateLike } from "@/utilities/CoordinateActions";
 
 const INCHES_PER_YARD = 36;
 
@@ -21,28 +22,24 @@ export class StepSize {
 
     constructor({
         marcher_id,
-        startingX,
-        startingY,
-        endingX,
-        endingY,
+        startCoord,
+        endCoord,
         counts,
         fieldProperties,
     }: {
         marcher_id: number;
-        startingX: number;
-        startingY: number;
-        endingX: number;
-        endingY: number;
+        startCoord: CoordinateLike;
+        endCoord: CoordinateLike;
         counts: number;
         fieldProperties: FieldProperties;
     }) {
         this.marcher_id = marcher_id;
         this.stepsPerFiveYards = StepSize.calculateStepSize({
-            startingX,
-            startingY,
-            endingX,
-            endingY,
-            counts,
+            startingX: startCoord.x,
+            startingY: startCoord.y,
+            endingX: endCoord.x,
+            endingY: endCoord.y,
+            counts: counts,
             pixelsPerStep: fieldProperties.pixelsPerStep,
         });
     }
@@ -135,10 +132,8 @@ export class StepSize {
 
         return new StepSize({
             marcher_id: endingPage.marcher_id,
-            startingX: startingPage.x,
-            startingY: startingPage.y,
-            endingX: endingPage.x,
-            endingY: endingPage.y,
+            startCoord: startingPage,
+            endCoord: endingPage,
             counts: page.counts,
             fieldProperties,
         });
