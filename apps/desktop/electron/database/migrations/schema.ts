@@ -369,6 +369,8 @@ export const utility = sqliteTable(
         id: integer().primaryKey(),
         last_page_counts: integer().notNull().default(8),
         default_beat_duration: real().notNull().default(0.5), // 120 bpm
+        /** Show-level notes (e.g. production/credit notes from an imported drill). */
+        notes: text(),
         updated_at: text()
             .default(sql`(CURRENT_TIMESTAMP)`)
             .notNull()
@@ -395,6 +397,11 @@ export const workspace_settings = sqliteTable(
 );
 
 /* =========================== VIEWS =========================== */
+/**
+ * An ordered list of the beats, pages, and measures in the app.
+ *
+ * This view should be used when needing to sort by page order.
+ */
 export const timing_objects = sqliteView("timing_objects", {
     position: integer("position").notNull(),
     duration: real("duration").notNull(),

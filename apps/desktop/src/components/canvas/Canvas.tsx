@@ -29,6 +29,7 @@ import { useSelectionStore } from "@/stores/SelectionStore";
 import { useSelectionListeners } from "./hooks/canvasListeners.selection";
 import { useMovementListeners } from "./hooks/canvasListeners.movement";
 import { useRenderMarcherShapes } from "./hooks/shapes";
+import { useDatabaseReady } from "@/hooks/useDatabaseReady";
 import { ShapePath } from "@/global/classes/canvasObjects/ShapePath";
 
 /**
@@ -78,8 +79,11 @@ export default function Canvas({
         updateMarcherPagesMutationOptions(queryClient),
     );
     const { setSelectedShapePageIds } = useSelectionStore()!;
+    const databaseReady = useDatabaseReady();
 
-    const { data: fieldProperties } = useQuery(fieldPropertiesQueryOptions());
+    const { data: fieldProperties } = useQuery(
+        fieldPropertiesQueryOptions(databaseReady),
+    );
     const { uiSettings } = useUiSettingsStore()!;
     const {
         alignmentEvent,
@@ -390,18 +394,22 @@ export default function Canvas({
             return;
 
         if (marchers) {
-            // Always call renderPathVisuals, but it will show/hide based on settings
+            // Always call renderPathVisuals, it decides visibility per pathway
+            const nextPage = pages.find(
+                (p) => p.id === selectedPage.nextPageId,
+            );
             canvas.renderPathVisuals({
                 marcherVisuals: marcherVisuals,
                 currentMarcherPages: marcherPages,
-                previousMarcherPages: uiSettings.previousPaths
-                    ? previousMarcherPages || {}
-                    : {},
-                nextMarcherPages: uiSettings.nextPaths
-                    ? nextMarcherPages || {}
-                    : {},
-
+                previousMarcherPages: previousMarcherPages || {},
+                nextMarcherPages: nextMarcherPages || {},
                 marcherIds: marchers.map((m) => m.id),
+                currentPageCounts: selectedPage.counts,
+                nextPageCounts: nextPage?.counts,
+                previousPathsEnabled: uiSettings.previousPaths,
+                nextPathsEnabled: uiSettings.nextPaths,
+                stepSizeWarningsEnabled: uiSettings.stepSizeWarnings,
+                fieldProperties: fieldProperties,
             });
             canvas.sendCanvasMarchersToFront();
         }
@@ -416,6 +424,7 @@ export default function Canvas({
         selectedPage,
         uiSettings.nextPaths,
         uiSettings.previousPaths,
+        uiSettings.stepSizeWarnings,
         marcherVisuals,
         marcherPagesLoaded,
     ]);

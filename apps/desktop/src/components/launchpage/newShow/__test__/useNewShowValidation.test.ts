@@ -1,0 +1,161 @@
+import { describe, expect, it } from "vitest";
+import { useNewShowValidation } from "../hooks/useNewShowValidation";
+import { renderHook } from "@testing-library/react";
+import {
+    DEFAULT_NEW_SHOW_WIZARD_STATE,
+    type NewShowWizardState,
+} from "../../newShowTypes";
+import FieldPropertiesTemplates from "@/global/classes/FieldProperties.templates";
+
+describe("useNewShowValidation", () => {
+    it("requires a setup mode on start step", () => {
+        const { result } = renderHook(() =>
+            useNewShowValidation(DEFAULT_NEW_SHOW_WIZARD_STATE, "start"),
+        );
+        expect(result.current).toBe(false);
+
+        const withStart: NewShowWizardState = {
+            ...DEFAULT_NEW_SHOW_WIZARD_STATE,
+            start: { mode: "importPrevious" },
+        };
+        const { result: selectedResult } = renderHook(() =>
+            useNewShowValidation(withStart, "start"),
+        );
+        expect(selectedResult.current).toBe(true);
+    });
+
+    it("requires project name and file location on project step", () => {
+        const { result } = renderHook(() =>
+            useNewShowValidation(DEFAULT_NEW_SHOW_WIZARD_STATE, "project"),
+        );
+        expect(result.current).toBe(false);
+
+        const withEmptyName: NewShowWizardState = {
+            ...DEFAULT_NEW_SHOW_WIZARD_STATE,
+            project: {
+                projectName: "",
+                fileLocation: "/tmp/my.dots",
+            },
+        };
+        const { result: emptyNameResult } = renderHook(() =>
+            useNewShowValidation(withEmptyName, "project"),
+        );
+        expect(emptyNameResult.current).toBe(false);
+
+        const withProject: NewShowWizardState = {
+            ...DEFAULT_NEW_SHOW_WIZARD_STATE,
+            project: {
+                projectName: "My Show",
+                fileLocation: "/tmp/my.dots",
+            },
+        };
+        const { result: result2 } = renderHook(() =>
+            useNewShowValidation(withProject, "project"),
+        );
+        expect(result2.current).toBe(true);
+    });
+
+    it("rejects a save location inside the new-show drafts directory", () => {
+        const drafts =
+            "/Users/me/Library/Application Support/OpenMarch/new-show-drafts";
+        const withDraftsPath: NewShowWizardState = {
+            ...DEFAULT_NEW_SHOW_WIZARD_STATE,
+            project: {
+                projectName: "My Show",
+                fileLocation: `${drafts}/My Show.dots`,
+            },
+        };
+        const { result: invalidResult } = renderHook(() =>
+            useNewShowValidation(withDraftsPath, "project", drafts),
+        );
+        expect(invalidResult.current).toBe(false);
+
+        const withSafePath: NewShowWizardState = {
+            ...DEFAULT_NEW_SHOW_WIZARD_STATE,
+            project: {
+                projectName: "My Show",
+                fileLocation: "/Users/me/Documents/My Show.dots",
+            },
+        };
+        const { result: validResult } = renderHook(() =>
+            useNewShowValidation(withSafePath, "project", drafts),
+        );
+        expect(validResult.current).toBe(true);
+    });
+
+    it("allows skip on performers step", () => {
+        const { result } = renderHook(() =>
+            useNewShowValidation(DEFAULT_NEW_SHOW_WIZARD_STATE, "performers"),
+        );
+        expect(result.current).toBe(true);
+    });
+
+    it("allows skip on audio step", () => {
+        const { result: audioResult } = renderHook(() =>
+            useNewShowValidation(DEFAULT_NEW_SHOW_WIZARD_STATE, "audio"),
+        );
+        expect(audioResult.current).toBe(true);
+    });
+
+    it("allows skip and xml on tempo step", () => {
+        const skipState: NewShowWizardState = {
+            ...DEFAULT_NEW_SHOW_WIZARD_STATE,
+            tempo: { method: "skip" },
+        };
+        const { result: skipResult } = renderHook(() =>
+            useNewShowValidation(skipState, "tempo"),
+        );
+        expect(skipResult.current).toBe(true);
+
+        const xmlState: NewShowWizardState = {
+            ...DEFAULT_NEW_SHOW_WIZARD_STATE,
+            tempo: { method: "xml" },
+        };
+        const { result: xmlResult } = renderHook(() =>
+            useNewShowValidation(xmlState, "tempo"),
+        );
+        expect(xmlResult.current).toBe(true);
+    });
+
+    it("requires tempo and time signature for tempo_only on tempo step", () => {
+        const missingTimeSignature: NewShowWizardState = {
+            ...DEFAULT_NEW_SHOW_WIZARD_STATE,
+            tempo: { method: "tempo_only", tempo: 120 },
+        };
+        const { result: missingSigResult } = renderHook(() =>
+            useNewShowValidation(missingTimeSignature, "tempo"),
+        );
+        expect(missingSigResult.current).toBe(false);
+
+        const validState: NewShowWizardState = {
+            ...DEFAULT_NEW_SHOW_WIZARD_STATE,
+            tempo: {
+                method: "tempo_only",
+                tempo: 120,
+                timeSignature: "4/4",
+            },
+        };
+        const { result: validResult } = renderHook(() =>
+            useNewShowValidation(validState, "tempo"),
+        );
+        expect(validResult.current).toBe(true);
+    });
+
+    it("requires field on field step", () => {
+        const state: NewShowWizardState = {
+            ...DEFAULT_NEW_SHOW_WIZARD_STATE,
+            ensemble: {
+                activity: "Marching Band",
+            },
+            field: {
+                template:
+                    FieldPropertiesTemplates.COLLEGE_FOOTBALL_FIELD_NO_END_ZONES,
+                isCustom: false,
+            },
+        };
+        const { result } = renderHook(() =>
+            useNewShowValidation(state, "field"),
+        );
+        expect(result.current).toBe(true);
+    });
+});

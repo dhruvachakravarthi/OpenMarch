@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Marcher from "@/global/classes/Marcher";
 import {
     getSectionObjectByName,
@@ -31,6 +31,11 @@ import { ModifiedMarcherArgs, NewMarcherArgs } from "@/db-functions";
 
 export interface MarcherFormProps {
     disabledProp?: boolean;
+    hideInfoNote?: boolean;
+    skipSidebarContent?: boolean;
+    onMarchersCreate?: (newMarchers: NewMarcherArgs[]) => void;
+    existingMarchers?: Marcher[];
+    wizardMode?: boolean;
     marcherIdToEdit?: number;
 }
 
@@ -39,13 +44,30 @@ const defaultSection = (t: (key: string) => string) =>
 
 const defaultDrillPrefix = "-";
 const defaultDrillOrder = 1;
+const defaultQuantity = 1;
 
 // eslint-disable-next-line react/prop-types, max-lines-per-function
 const MarcherForm: React.FC<MarcherFormProps> = ({
     disabledProp = false,
+    hideInfoNote = false,
+    skipSidebarContent = false,
+    onMarchersCreate,
+    existingMarchers,
+    wizardMode = false,
     marcherIdToEdit,
-}: MarcherFormProps) => {
-    const [quantity, setQuantity] = useState<number>(1);
+}) => {
+    // Stored as the raw string so the field can be emptied while typing. Keep
+    // this input controlled: resetForm() calls formRef.current.reset(), which
+    // changes the DOM value without notifying React. An uncontrolled input
+    // leaves React's internal value tracker stale, and it then suppresses the
+    // change event when the user retypes the pre-reset value. See issue #1004.
+    const [quantityInput, setQuantityInput] = useState<string>(
+        String(defaultQuantity),
+    );
+    const quantity = useMemo(() => {
+        const parsed = parseInt(quantityInput, 10);
+        return Number.isNaN(parsed) || parsed < 1 ? defaultQuantity : parsed;
+    }, [quantityInput]);
     const [section, setSection] = useState<string>();
     const [name, setName] = useState<string>("");
     const [year, setYear] = useState<string>("");
@@ -58,10 +80,14 @@ const MarcherForm: React.FC<MarcherFormProps> = ({
         useState<boolean>(false);
     const [drillOrderError, setDrillOrderError] = useState<string>("");
     const queryClient = useQueryClient();
-    const { data: marchers } = useQuery(allMarchersQueryOptions());
-    const createMarchers = useMutation(
+    const { data: dbMarchers } = useQuery({
+        ...allMarchersQueryOptions(),
+        enabled: !existingMarchers && !wizardMode,
+    });
+    const marchers = existingMarchers ?? dbMarchers;
+    const createMarchersMutation = useMutation(
         createMarchersMutationOptions(queryClient),
-    ).mutate;
+    );
     const updateMarchers = useMutation(
         updateMarchersMutationOptions(queryClient),
     ).mutate;
@@ -83,24 +109,28 @@ const MarcherForm: React.FC<MarcherFormProps> = ({
         setSection(defaultSection(t));
     }, [t]);
 
-    const resetForm = () => {
-        setQuantity(1);
-        setSection(defaultSection(t));
+    const resetForm = (preserveSection = false) => {
+        setQuantityInput(String(defaultQuantity));
+        if (!preserveSection) {
+            setSection(defaultSection(t));
+            setDrillPrefix(defaultDrillPrefix);
+            setDrillPrefixTouched(false);
+        }
         setName("");
         setYear("");
-        setDrillPrefix(defaultDrillPrefix);
         setDrillOrder(defaultDrillOrder);
         setNotes("");
         setSectionError("");
         setDrillPrefixError("");
-        setDrillPrefixTouched(false);
         setDrillOrderError("");
 
         if (formRef.current) formRef.current.reset();
     };
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-        setContent(<MarcherListContents />, "marchers");
+        if (!skipSidebarContent) {
+            setContent(<MarcherListContents />, "marchers");
+        }
         event.preventDefault();
         let newDrillOrderOffset = 0;
         const existingDrillOrders = new Set<number>(
@@ -142,10 +172,14 @@ const MarcherForm: React.FC<MarcherFormProps> = ({
                         drill_order: newDrillOrder,
                     });
                 }
-                createMarchers(newMarchers);
+                if (onMarchersCreate) {
+                    onMarchersCreate(newMarchers);
+                } else if (!wizardMode) {
+                    createMarchersMutation.mutate(newMarchers);
+                }
             }
         }
-        resetForm();
+        resetForm(wizardMode);
     };
 
     const handleSectionChange = (value: string) => {
@@ -197,8 +231,7 @@ const MarcherForm: React.FC<MarcherFormProps> = ({
     const handleQuantityChange = (
         event: React.ChangeEvent<HTMLInputElement>,
     ) => {
-        if (event.target.value === "") setQuantity(1);
-        else setQuantity(parseInt(event.target.value));
+        setQuantityInput(event.target.value);
     };
 
     const resetDrillOrder = useCallback(() => {
@@ -291,7 +324,7 @@ const MarcherForm: React.FC<MarcherFormProps> = ({
                     <FormField label={t("marchers.quantity")}>
                         <Input
                             type="number"
-                            defaultValue={1}
+                            value={quantityInput}
                             onChange={handleQuantityChange}
                             step={1}
                             min={1}
@@ -400,9 +433,11 @@ const MarcherForm: React.FC<MarcherFormProps> = ({
                         getTranslatedSectionName(section || "Other", t),
                     )}
                 </Button>
-                <InfoNote>
-                    <T keyName="marchers.createInfo" />
-                </InfoNote>
+                {!hideInfoNote && (
+                    <InfoNote>
+                        <T keyName="marchers.createInfo" />
+                    </InfoNote>
+                )}
             </div>
         </Form.Root>
     );
